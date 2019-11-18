@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+author: "Stephen Betsock"
+date: "11/18/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+SQL verbs
+SELECT
+FROM
+WHERE
+HAVING
+JOIN
+  INNER
+  OUTER
+  FULL
+GROUP BY
+LIKE
+
+
+```{r}
+library(dbplyr)
+library(sqldf)
+library(tidyverse)
+
+dir.create("data_raw", showWarnings = FALSE)
+download.file(url="https://ndownloader.figshare.com/files/2292171",
+              destfile = "data_raw/portal_mammels.sqlite", mode="wb")
+```
+```{r explorations, echo=FALSE}
+mammels<-DBI::dbConnect(RSQLite::SQLite(), "data_raw/portal_mammels.sqlite")
+#summary
+dbplyr::src_dbi(mammels)
+species<-tbl(mammels, sql("SELECT year, species_id, plot_id FROM surveys"))
+```
+
+```{r}
+surveys<-tbl(mammels, "surveys")
+head(surveys, n=10)
+#print associated SQL query
+show_query(head(surveys, n=10))
+df<-dplyr::as_tibble(surveys %>% select(year, species_id, plot_id))
+dim(df)
+head(df)
+```
+
+```{r}
+surveys %>% filter (weight <5)%>%select(species_id, sex, weight)
+dplyr::show_query(surveys %>% filter (weight <5)%>%select(species_id, sex, weight))
+data_subset <-survey %>%
+  filter(weight <5)%>%
+  select(species_id, sex, weight) %>%
+  collect()
+class(data_subset) #no longere a query object
+query <-paste("SELECT month as m, day as d, year as y, hinderfoot_length as h, weight as w
+              FROM surveys
+              WHERE year >1985
+              LIMIT 15",
+              sep =" ")
+tbl(mammels, sql(query))
+rm(query)
+
+##############################
+
+#Complex query example
+query<-paste("SELECT a.year, b.taxa, count(*) as count
+             FROM surveys a
+             JOIN species b
+             ON a.species_id = b.species_id
+             AND b.taxa = 'Rodent'
+             GROUP BY a.year b.taxa", 
+             sep=" ")
+tbl(mammels, sql(query))
+
+########################
+
+query<-paste("SELECT a.year, b.taxa, count(*) as count
+             FROM surveys a
+             JOIN species b
+             ON a.species_id = b.species_id",
+             sep=" " 
+
+genus_counts <-dplyr::left_join(surveys, species) %>% left_join(plots)
+                           filter(taxa=="Rodent") %>%
+                           group_by(plot_type, genus) %>%
+                           tally
+                           
+dplyr::show_query(genus_counts)
+```
